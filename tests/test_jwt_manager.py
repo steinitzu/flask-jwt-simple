@@ -2,7 +2,8 @@ import json
 
 import pytest
 from flask import Flask, jsonify
-from flask_jwt_simple import JWTManager
+from flask_jwt_simple import JWTManager, decode_jwt
+import jwt as pyjwt
 
 
 @pytest.fixture(scope='function')
@@ -132,3 +133,66 @@ def test_custom_get_jwt_data_callback(app):
     with app.test_request_context():
         result = jwt_manager._get_jwt_data(identity='foo')
         assert result == {"foo": "bar"}
+
+
+def test_custom_encode_key_callback(app):
+    jwt_manager = JWTManager(app)
+
+    @jwt_manager.encode_key_loader
+    def encode_key(claims):
+        return 'custom_encode_key'
+
+    with app.test_request_context():
+        assert jwt_manager._get_encode_key({}) == 'custom_encode_key'
+
+
+def test_custom_decode_key_callback(app):
+    jwt_manager = JWTManager(app)
+
+    @jwt_manager.decode_key_loader
+    def custom(claims):
+        return 'custom_decode_key'
+
+    with app.test_request_context():
+        assert jwt_manager._get_decode_key({}) == 'custom_decode_key'
+
+
+def test_create_jwt_with_encode_key_override(app):
+    jwt_manager = JWTManager(app)
+
+    @jwt_manager.encode_key_loader
+    def custom(claims):
+        return 'custom_encode_key'
+
+    with app.test_request_context():
+        jwt_manager._create_jwt('foo')
+
+
+def test_decode_jwt_with_key_override(app):
+    jwt_manager = JWTManager(app)
+
+    @jwt_manager.encode_key_loader
+    @jwt_manager.decode_key_loader
+    def custom(claims):
+        return 'custom_encode_key'
+
+    with app.test_request_context():
+        token = jwt_manager._create_jwt('foo')
+        decode_jwt(token)
+
+
+def test_decode_jwt_with_key_override_mismatch(app):
+    jwt_manager = JWTManager(app)
+
+    @jwt_manager.encode_key_loader
+    def encode_key(claims):
+        return 'custom_encode_key'
+
+    @jwt_manager.decode_key_loader
+    def decode_key(claims):
+        return 'wrong_decode_key'    
+
+    with app.test_request_context():
+        token = jwt_manager._create_jwt('foo')
+        with pytest.raises(pyjwt.InvalidSignatureError):
+            decode_jwt(token)

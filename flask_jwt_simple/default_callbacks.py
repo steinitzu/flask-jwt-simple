@@ -16,6 +16,14 @@ def default_jwt_data_callback(identity):
     }
 
 
+def default_decode_key_callback(claims):
+    return config.decode_key
+
+
+def default_encode_key_callback(claims):
+    return config.encode_key
+
+
 def default_expired_token_callback():
     """
     By default, if an expired token attempts to access a protected endpoint,

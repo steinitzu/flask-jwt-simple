@@ -6,7 +6,8 @@ from flask_jwt_simple.config import config
 from flask_jwt_simple.exceptions import NoAuthorizationError, InvalidHeaderError
 from flask_jwt_simple.default_callbacks import (
     default_expired_token_callback, default_invalid_token_callback,
-    default_unauthorized_callback, default_jwt_data_callback
+    default_unauthorized_callback, default_jwt_data_callback,
+    default_decode_key_callback, default_encode_key_callback
 )
 
 
@@ -32,6 +33,8 @@ class JWTManager(object):
         self._invalid_token_callback = default_invalid_token_callback
         self._unauthorized_callback = default_unauthorized_callback
         self._get_jwt_data = default_jwt_data_callback
+        self._get_encode_key = default_encode_key_callback
+        self._get_decode_key = default_decode_key_callback
 
         # Register this extension with the flask app now (if it is provided)
         if app is not None:
@@ -168,9 +171,35 @@ class JWTManager(object):
         self._get_jwt_data = callback
         return callback
 
+    def decode_key_loader(self, callback):
+        """
+        Sets the callback method to load the decode key used when
+        verifying a JWT.
+
+        The default implementation returns the decode key set in config.
+
+        Callback must accept one argument that is the a dict of unverified
+        JWT claims and return the decode key as a string.
+        """
+        self._get_decode_key = callback
+        return callback
+
+    def encode_key_loader(self, callback):
+        """
+        Sets the callback method to load the encode key used when
+        creating a JWT.
+
+        The default implementation returns the encode key set in config.
+
+        Callback must accept one argument that is the dict of JWT claims and
+        return the encode key as a string.
+        """
+        self._get_encode_key = callback
+        return callback
+
     def _create_jwt(self, identity):
         jwt_data = self._get_jwt_data(identity)
-        secret = config.encode_key
+        secret = self._get_encode_key(jwt_data)
         algorithm = config.algorithm
         return jwt.encode(jwt_data, secret, algorithm).decode('utf-8')
 
